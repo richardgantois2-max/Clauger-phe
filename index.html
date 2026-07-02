@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Clauger PHE">
+<meta name="apple-mobile-web-app-title" content="Clauger PHE v2">
 <meta name="theme-color" content="#003566">
-<title>Clauger PHE</title>
+<title>Clauger PHE v2</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#1a1a2e;overflow:hidden;}
@@ -122,7 +122,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <div id="app">
   <div id="topbar">
     <button class="t-back" id="backBtn" onclick="goBack()">←</button>
-    <div class="t-title" id="topTitle">Clauger PHE <span class="t-sub">Bons d'intervention</span></div>
+    <div class="t-title" id="topTitle">Clauger PHE v2 <span class="t-sub">Bons d'intervention</span></div>
   </div>
 
   <div id="content">
@@ -433,7 +433,7 @@ function goBack() {
 
 function updateTopbar() {
   var titles = {
-    's-home': 'Clauger PHE <span class="t-sub">Bons d\'intervention</span>',
+    's-home': 'Clauger PHE v2 <span class="t-sub">Bons d\'intervention</span>',
     's-rapports': 'Mes rapports <span class="t-sub">'+reports.length+' rapport(s)</span>',
     's-reglages': 'Réglages <span class="t-sub">Profil technicien</span>',
     's-new-type': 'Nouveau rapport <span class="t-sub">Étape 1/5 - Type de prestation</span>',
@@ -445,7 +445,7 @@ function updateTopbar() {
     's-recap': 'Récapitulatif <span class="t-sub">Prêt à enregistrer</span>',
     's-detail': 'Rapport <span class="t-sub">'+(detailId ? (reports.find(function(r){return r.id===detailId;})||{}).client||'' : '')+'</span>'
   };
-  document.getElementById('topTitle').innerHTML = titles[curScreen] || 'Clauger PHE';
+  document.getElementById('topTitle').innerHTML = titles[curScreen] || 'Clauger PHE v2';
 }
 
 // ===========================================================
