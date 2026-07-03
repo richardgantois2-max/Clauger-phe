@@ -922,8 +922,8 @@ function exportPDF(id) {
   allInfo.forEach(function(row) {
     if (row[1]) {
       infoHtml += '<tr>'
-        +'<td style="background:#d0dce8;font-weight:700;font-size:11px;padding:6px 10px;width:42%;border:1px solid #b0c0d0;">'+row[0]+'</td>'
-        +'<td style="background:#fff;font-size:11px;padding:6px 10px;border:1px solid #b0c0d0;">'+row[1]+'</td>'
+        +'<td style="background:#d0dce8;color:#111;font-weight:700;font-size:11px;padding:6px 10px;width:42%;border:1px solid #b0c0d0;">'+row[0]+'</td>'
+        +'<td style="background:#fff;color:#111;font-size:11px;padding:6px 10px;border:1px solid #b0c0d0;">'+row[1]+'</td>'
         +'</tr>';
     }
   });
@@ -934,16 +934,26 @@ function exportPDF(id) {
   if (r.photos && r.photos.length > 0) {
     photosHtml += '<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;margin-bottom:0;">PHOTOS ('+r.photos.length+')</div>';
     photosHtml += '<div style="border:1px solid #b0c0d0;background:#fff;padding:8px;margin-bottom:16px;">';
-    photosHtml += '<table style="width:100%;border-collapse:collapse;"><tr>';
-    var cols = Math.min(r.photos.length, 4);
-    r.photos.forEach(function(p, i) {
-      photosHtml += '<td style="width:'+(100/cols)+'%;padding:3px;vertical-align:top;">'
-        +'<div style="position:relative;">'
-        +'<img src="'+p+'" style="width:100%;height:120px;object-fit:cover;">'
-        +'<div style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:2px;">'+(i+1)+'</div>'
-        +'</div></td>';
+    // Photos in 2 columns, max 4 per row
+    var photoRows = [];
+    for (var pi = 0; pi < r.photos.length; pi += 2) {
+      photoRows.push(r.photos.slice(pi, pi + 2));
+    }
+    photosHtml += '<table style="width:100%;border-collapse:collapse;">';
+    photoRows.forEach(function(row, ri) {
+      photosHtml += '<tr>';
+      row.forEach(function(p, ci) {
+        var idx = ri * 2 + ci;
+        photosHtml += '<td style="width:50%;padding:4px;vertical-align:top;">'
+          +'<div style="position:relative;">'
+          +'<img src="'+p+'" style="width:100%;height:180px;object-fit:cover;display:block;border-radius:3px;">'
+          +'<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;">'+(idx+1)+'</div>'
+          +'</div></td>';
+      });
+      if (row.length === 1) photosHtml += '<td style="width:50%;"></td>';
+      photosHtml += '</tr>';
     });
-    photosHtml += '</tr></table></div>';
+    photosHtml += '</table></div>';
   }
 
   // Checklist
@@ -962,7 +972,7 @@ function exportPDF(id) {
         : '<span style="color:#888;">—</span>';
       var bg = c.s==='NON' ? 'background:#fff5f5;' : 'background:#fff;';
       clHtml += '<tr style="'+bg+'">'
-        +'<td style="font-size:11px;padding:5px 10px;border:1px solid #d0d8e0;">'+c.l+'</td>'
+        +'<td style="font-size:11px;padding:5px 10px;border:1px solid #d0d8e0;background:#fff;color:#111;">'+c.l+'</td>'
         +'<td style="font-size:11px;padding:5px 10px;border:1px solid #d0d8e0;text-align:center;">'+statut+'</td>'
         +'<td style="font-size:11px;padding:5px 10px;border:1px solid #d0d8e0;color:#c05c00;font-style:italic;">'+(c.r||'')+'</td>'
         +'</tr>';
@@ -991,9 +1001,13 @@ function exportPDF(id) {
   parts.push('<style>');
   parts.push('*{box-sizing:border-box;margin:0;padding:0;}');
   parts.push('html,body{background:#e8eef4!important;color:#111!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}');
-  parts.push('body{font-family:Arial,Helvetica,sans-serif;font-size:11px;padding:20px;background:#e8eef4;}');
-  parts.push('@page{margin:12mm;}');
-  parts.push('@media print{html,body{background:#e8eef4!important;}}');
+  parts.push('body{font-family:Arial,Helvetica,sans-serif;font-size:11px;padding:20px;background:#e8eef4;color:#111;}');
+  parts.push('table td, table th{color:#111!important;background-color:transparent;}');
+  parts.push('div{color:#111;}');
+  parts.push('p{color:#111;}');
+  parts.push('@page{margin:10mm;}');
+  parts.push('* { page-break-inside: avoid; }');
+  parts.push('@media print{html,body{background:#e8eef4!important;color:#111!important;}}');
   parts.push('</style>');
   parts.push('<title>BI Clauger - '+r.client+' - '+r.date+'</title></head><body>');
 
@@ -1018,10 +1032,10 @@ function exportPDF(id) {
   parts.push(clHtml);
 
   parts.push('<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;margin-top:4px;">• CONCLUSION ET AMELIORATIONS PROPOSEES</div>');
-  parts.push('<div style="border:1px solid #b0c0d0;background:#fff;padding:10px;font-size:11px;min-height:40px;margin-bottom:0;white-space:pre-wrap;">'+(r.conclusion||'—')+'</div>');
+  parts.push('<div style="border:1px solid #b0c0d0;background:#fff;color:#111;padding:10px;font-size:11px;min-height:20px;margin-bottom:0;white-space:pre-wrap;">'+(r.conclusion||'—')+'</div>');
 
   parts.push('<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;margin-top:12px;">• REMARQUES PARTICULIERES</div>');
-  parts.push('<div style="border:1px solid #b0c0d0;background:#fff;padding:10px;font-size:11px;min-height:30px;margin-bottom:0;white-space:pre-wrap;">'+(r.remarques||'—')+'</div>');
+  parts.push('<div style="border:1px solid #b0c0d0;background:#fff;color:#111;padding:10px;font-size:11px;min-height:20px;margin-bottom:0;white-space:pre-wrap;">'+(r.remarques||'—')+'</div>');
 
   parts.push(sigHtml);
   parts.push('</body></html>');
