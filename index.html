@@ -117,6 +117,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 @keyframes tIn{from{opacity:0;transform:translateX(-50%) translateY(-8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 @keyframes tOut{to{opacity:0;}}
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -890,180 +893,129 @@ function exportPDF(id) {
   var r = reports.find(function(x){return x.id===id;});
   if (!r) return;
 
-  var cl = r.cl||[];
-  var anom = cl.filter(function(c){return c.s==='NON';});
-  var ok   = cl.filter(function(c){return c.s==='OUI';});
-  var dateStr = r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—';
-
-  // Info rows - only filled fields
-  var allInfo = [
-    ['Agence Clauger', r.agence],
-    ['Nom du Client', r.client],
-    ['Technicien', r.tech],
-    ['Date', dateStr],
-    ['Type de prestation', r.type],
-    ['Application', r.app],
-    ['Marque', r.marque],
-    ['Modele', r.modele],
-    ['N de serie', r.serie],
-    ['Cote de serrage (mm)', r.cote],
-    ['Epaisseur bati fixe (mm)', r.batiFixe],
-    ['Epaisseur bati mobile (mm)', r.batiMobile],
-    ['Epaisseur bati intermediaire (mm)', r.batiInter],
-    ['Nombre de tirants', r.ntirants],
-    ['Taille des tirants / ecrous', r.ecrous],
-    ['Nombre de plaques / cassettes', r.nplaques],
-    ['Type de raccord', r.raccordType],
-    ['Taille de raccord', r.raccordTaille],
-    ['Plaques par section', r.plaquesSection]
-  ];
-
-  var infoHtml = '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">';
-  allInfo.forEach(function(row) {
-    if (row[1]) {
-      infoHtml += '<tr>'
-        +'<td style="background:#d0dce8;color:#111;font-weight:700;font-size:11px;padding:6px 10px;width:42%;border:1px solid #b0c0d0;">'+row[0]+'</td>'
-        +'<td style="background:#fff;color:#111;font-size:11px;padding:6px 10px;border:1px solid #b0c0d0;">'+row[1]+'</td>'
-        +'</tr>';
-    }
-  });
-  infoHtml += '</table>';
-
-  // Photos
-  var photosHtml = '';
-  if (r.photos && r.photos.length > 0) {
-    photosHtml += '<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;margin-bottom:0;">PHOTOS ('+r.photos.length+')</div>';
-    photosHtml += '<div style="border:1px solid #b0c0d0;background:#fff;padding:8px;margin-bottom:16px;">';
-    // Photos in 2 columns, max 4 per row
-    var photoRows = [];
-    for (var pi = 0; pi < r.photos.length; pi += 2) {
-      photoRows.push(r.photos.slice(pi, pi + 2));
-    }
-    photosHtml += '<table style="width:100%;border-collapse:collapse;">';
-    photoRows.forEach(function(row, ri) {
-      photosHtml += '<tr>';
-      row.forEach(function(p, ci) {
-        var idx = ri * 2 + ci;
-        photosHtml += '<td style="width:50%;padding:4px;vertical-align:top;">'
-          +'<div style="position:relative;">'
-          +'<img src="'+p+'" style="width:100%;max-height:200px;object-fit:contain;display:block;border-radius:3px;background:#f0f0f0;">'
-          +'<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;">'+(idx+1)+'</div>'
-          +'</div></td>';
-      });
-      if (row.length === 1) photosHtml += '<td style="width:50%;"></td>';
-      photosHtml += '</tr>';
-    });
-    photosHtml += '</table></div>';
+  if (!window.html2canvas || !window.jspdf) {
+    showToast('Chargement PDF en cours...');
+    setTimeout(function(){ exportPDF(id); }, 1500);
+    return;
   }
 
-  // Checklist
-  var clHtml = '';
-  if (cl.length > 0) {
-    clHtml += '<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;">• DETAIL DES PRESTATIONS EFFECTUEES</div>';
-    clHtml += '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">';
-    clHtml += '<tr>'
-      +'<th style="background:#2a5298;color:#fff;font-size:11px;padding:6px 10px;text-align:left;border:1px solid #b0c0d0;width:68%;">Prestation</th>'
-      +'<th style="background:#2a5298;color:#fff;font-size:11px;padding:6px 10px;text-align:center;border:1px solid #b0c0d0;width:12%;">Statut</th>'
-      +'<th style="background:#2a5298;color:#fff;font-size:11px;padding:6px 10px;text-align:left;border:1px solid #b0c0d0;width:20%;">Remarque</th>'
-      +'</tr>';
-    cl.forEach(function(c) {
-      var statut = c.s==='OUI' ? '<span style="color:#1a7a3c;font-weight:800;">OUI</span>'
-        : c.s==='NON' ? '<span style="color:#cc0000;font-weight:800;">NON</span>'
-        : '<span style="color:#888;">—</span>';
-      var bg = c.s==='NON' ? 'background:#fff5f5;' : 'background:#fff;';
-      clHtml += '<tr style="'+bg+'">'
-        +'<td style="font-size:11px;padding:5px 10px;border:1px solid #d0d8e0;background:#fff;color:#111;">'+c.l+'</td>'
-        +'<td style="font-size:11px;padding:5px 10px;border:1px solid #d0d8e0;text-align:center;">'+statut+'</td>'
-        +'<td style="font-size:11px;padding:5px 10px;border:1px solid #d0d8e0;color:#c05c00;font-style:italic;">'+(c.r||'')+'</td>'
-        +'</tr>';
-    });
-    clHtml += '</table>';
-  }
+  // Convert app report to v11 format
+  var report = {
+    dateRedaction: r.date || new Date().toISOString().split('T')[0],
+    numBT: '',
+    agence: r.agence || '',
+    client: r.client || '',
+    technicien: r.tech || '',
+    typePrestation: r.type || '',
+    application: r.app || '',
+    marque: r.marque || '',
+    modele: r.modele || '',
+    serie: r.serie || '',
+    coteMm: r.cote || '',
+    batiFixe: r.batiFixe || '',
+    batiMobile: r.batiMobile || '',
+    batiInter: r.batiInter || '',
+    nTirants: r.ntirants || '',
+    tailleTirants: r.ecrous || '',
+    nbPlaques: r.nplaques || '',
+    raccordType: r.raccordType || '',
+    raccordTaille: r.raccordTaille || '',
+    plaquesSection: r.plaquesSection || '',
+    checklist: (r.cl||[]).map(function(c){ return {label:c.l, statut:c.s||'', remarque:c.r||''}; }),
+    photos: r.photos || [],
+    conclusion: r.conclusion || '',
+    remarques: r.remarques || '',
+    clientNom: r.client || '',
+    clientFonction: '',
+    clientSignature: r.sig_sigClient || null,
+    technicienSignature: r.sig_sigTech || null,
+    multiEchangeur: false,
+    sections: { metrology: false },
+    metrology: null
+  };
 
-  // Signatures
-  var sigHtml = '<table style="width:100%;border-collapse:collapse;margin-top:24px;"><tr>';
-  sigHtml += '<td style="width:25%;vertical-align:top;padding:8px;border:1px solid #b0c0d0;">'
-    +'<div style="font-size:11px;font-weight:700;margin-bottom:6px;">Client</div>'
-    +(r.sig_sigClient ? '<img src="'+r.sig_sigClient+'" style="width:100%;max-height:55px;object-fit:contain;">' : '<div style="height:55px;"></div>')
-    +'</td>';
-  sigHtml += '<td style="width:50%;text-align:center;vertical-align:bottom;padding:8px;border:1px solid #b0c0d0;font-size:9px;color:#444;line-height:1.5;">'
-    +"Document etabli par Clauger a l'attention<br>du client et de l'agence valant constat<br>contradictoire des prestations realisees"
-    +'</td>';
-  sigHtml += '<td style="width:25%;vertical-align:top;padding:8px;border:1px solid #b0c0d0;text-align:right;">'
-    +'<div style="font-size:11px;margin-bottom:4px;">'+(r.tech||'')+'<br><span style="color:#555;font-size:10px;">Technicien Clauger</span></div>'
-    +(r.sig_sigTech ? '<img src="'+r.sig_sigTech+'" style="max-height:55px;object-fit:contain;">' : '<div style="height:55px;"></div>')
-    +'</td>';
-  sigHtml += '</tr></table>';
+  // Build PDF HTML using v11 style
+  var docHTML = buildDocHTML(report);
 
-  // Build full HTML - logo embedded as variable set separately to avoid syntax issues
-  var parts = [];
-  parts.push('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">');
-  parts.push('<style>');
-  parts.push('*{box-sizing:border-box;margin:0;padding:0;}');
-  parts.push('html,body{background:#e8eef4!important;color:#111!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}');
-  parts.push('body{font-family:Arial,Helvetica,sans-serif;font-size:11px;padding:20px;background:#e8eef4;color:#111;}');
-  parts.push('table td, table th{color:#111!important;background-color:transparent;}');
-  parts.push('div{color:#111;}');
-  parts.push('p{color:#111;}');
-  parts.push('@page{margin:10mm;}');
-  parts.push('* { page-break-inside: avoid; }');
-  parts.push('@media print{html,body{background:#e8eef4!important;color:#111!important;}}');
-  parts.push('</style>');
-  parts.push('<title>BI Clauger - '+r.client+' - '+r.date+'</title></head><body>');
+  var css_vars = `:root{
+  --blue:#1871ab;
+  --blue-deep:#2f5597;
+  --blue-deeper:#1f3a5f;
+  --red:#dc1615;
+  --bg:#eef2f6;
+  --report-bg:#d7e3ec;
+  --card:#ffffff;
+  --ink:#16212c;
+  --muted:#5b6b7a;
+  --line:#c7d3dd;
+  --ok:#2f8f4e;
+  --ok-bg:#e6f3ea;
+  --warn:#dc1615;
+  --warn-bg:#fbe7e6;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(22,33,44,.06), 0 4px 14px rgba(22,33,44,.06);
+}`;
+  var doc_css = `.tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--blue-deep);background:#eaf2f9;border-radius:6px;padding:2px 6px;display:inline-block;margin-top:5px}
+.docwrap{background:var(--report-bg);padding:16px;border-radius:var(--radius)}
+.doc{background:var(--report-bg);max-width:720px;margin:0 auto}
+.doc .sheet{padding:18px 0 26px}
+.doc .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.doc .head img{height:38px}
+.doc .head .tag{font-style:italic;font-weight:700;font-size:20px;color:var(--blue-deep)}
+.doc h1.title{color:#aebbc4;font-size:21px;text-align:center;text-transform:uppercase;margin:8px 0 16px;line-height:1.25}
+.doc .meta{font-size:12.5px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.doc .ntbox{background:#ffe7a8;border:1.5px solid var(--red);color:var(--red);font-weight:800;text-align:center;border-radius:5px;padding:7px 12px;font-size:13px}
+.doc .sectiontitle{font-weight:800;font-size:13px;margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+.doc .sectiontitle:before{content:"●";color:var(--ink);font-size:9px}
+.doc table.dtbl{width:100%;border-collapse:collapse;font-size:12px;background:#fff}
+.doc table.dtbl th{background:var(--blue-deep);color:#fff;text-align:left;padding:6px 7px;font-size:11px}
+.doc table.dtbl td{padding:6px 7px;border-bottom:1px solid #c7d3dd;background:#fff}
+.doc table.dtbl tr.section td{background:var(--blue-deep);color:#fff;font-weight:700}
+.doc .infoblock{display:grid;grid-template-columns:1fr 1.4fr;font-size:12px;background:#fff}
+.doc .infoblock .k{background:var(--blue-deep);color:#fff;font-weight:700;padding:6px 8px;border-bottom:1px solid #fff}
+.doc .infoblock .v{padding:6px 8px;border-bottom:1px solid var(--line);background:#fff}
+.doc .photostrip{display:flex;gap:3px;overflow:hidden;border:1px solid #99a9b6}
+.doc .photostrip .ph{position:relative;flex:1;aspect-ratio:3/4;background:#000}
+.doc .photostrip .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.doc .photostrip .ph .n{position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:1px 5px;border-radius:4px}
+.doc .photonote{font-size:11px;display:flex;justify-content:space-between;margin-top:4px;color:var(--ink)}
+.doc .freebox{background:#fff;border:1px solid var(--line);min-height:50px;padding:10px;font-size:12.5px;white-space:pre-wrap}
+.doc .signrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px}
+.doc .signbox{background:#fff;border:1px solid var(--line);width:170px;text-align:center;padding:8px;font-size:11px}
+.doc .signbox img{height:46px;margin-top:4px}
+.doc .closing{font-size:12px;text-align:right;max-width:230px;margin-left:auto}
+.doc .platesdiagram{display:flex;gap:30px;justify-content:center;margin:10px 0}
+.doc .platesdiagram .pd{text-align:center;font-size:11px;font-weight:700}
+.doc .platesdiagram .bars{display:flex;gap:3px;justify-content:center;margin-top:6px}
+.doc .platesdiagram .bars div{width:10px;height:60px;background:#aebbc4;border:1px solid #8fa0ad}
+.docwrap{padding:0;border-radius:0}
+.doc{max-width:100%}
+.doc .sheet{page-break-after:always}
+.doc .sheet:last-child{page-break-after:auto}
+.nobreak{break-inside:avoid;page-break-inside:avoid}`;
 
-  // Header avec logo
-  parts.push('<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">');
-  parts.push('<div id="logoHolder" style="height:52px;"></div>');
-  parts.push('<div style="font-size:26px;font-weight:800;color:#2a5298;font-style:italic;letter-spacing:.02em;">PHE</div>');
-  parts.push('</div>');
+  var fullHTML = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
+    + '<style>' + css_vars + ' body{font-family:Arial,Helvetica,sans-serif;background:var(--report-bg);padding:20px;} ' + doc_css + '</style>'
+    + '</head><body>' + docHTML + '</body></html>';
 
-  // Titre
-  parts.push('<div style="text-align:center;font-size:13px;font-weight:700;color:#2a5298;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">'+(r.type||'BON INTERVENTION PHE')+'</div>');
-
-  // Date + N° BT
-  parts.push('<div style="margin-bottom:14px;">');
-  parts.push('<div style="font-size:12px;">Date de rédaction : <strong>'+dateStr+'</strong></div>');
-  parts.push('</div>');
-
-  // Sections
-  parts.push('<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;margin-bottom:0;">• INFORMATIONS CLAUGER &amp; CLIENT</div>');
-  parts.push(infoHtml);
-  parts.push(photosHtml);
-  parts.push(clHtml);
-
-  parts.push('<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;margin-top:4px;">• CONCLUSION ET AMELIORATIONS PROPOSEES</div>');
-  parts.push('<div style="border:1px solid #b0c0d0;background:#fff;color:#111;padding:10px;font-size:11px;min-height:20px;margin-bottom:0;white-space:pre-wrap;">'+(r.conclusion||'—')+'</div>');
-
-  parts.push('<div style="background:#2a5298;color:#fff;font-weight:700;font-size:11px;padding:7px 10px;margin-top:12px;">• REMARQUES PARTICULIERES</div>');
-  parts.push('<div style="border:1px solid #b0c0d0;background:#fff;color:#111;padding:10px;font-size:11px;min-height:20px;margin-bottom:0;white-space:pre-wrap;">'+(r.remarques||'—')+'</div>');
-
-  parts.push(sigHtml);
-  parts.push('</body></html>');
-
-  var html = parts.join('');
-
-  var blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  var url = URL.createObjectURL(blob);
-  var win = window.open(url, '_blank');
+  // Open and print
+  var win = window.open('', '_blank');
   if (win) {
-    win.onload = function() {
-      // Inject logo after page loads
-      var img = win.document.createElement('img');
-      if (LOGO_DATA_URL) { img.src = LOGO_DATA_URL; } else { img.style.display='none'; var txt = win.document.createElement('div'); txt.innerHTML = '<strong style="font-size:22px;color:#fff;font-family:Arial;">clauger</strong>'; holder.appendChild(txt); }
-      img.style.height = '52px';
-      var holder = win.document.getElementById('logoHolder');
-      if (holder) holder.appendChild(img);
-      setTimeout(function(){ win.print(); }, 900);
-    };
+    win.document.open();
+    win.document.write(fullHTML);
+    win.document.close();
+    setTimeout(function(){ win.focus(); win.print(); }, 800);
   } else {
+    var blob = new Blob([fullHTML], {type:'text/html;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
     a.download = 'BI_Clauger_'+(r.client||'rapport').replace(/[^a-z0-9]/gi,'_')+'_'+(r.date||'')+'.html';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    showToast('Ouvrez le fichier puis Imprimer -> Enregistrer PDF');
   }
 }
-
 
 
 // ===========================================================
@@ -1245,6 +1197,206 @@ function goToRecap() {
   save();
   showScreen('s-recap');
 }
+
+
+// ===========================================================
+// PDF GENERATION - V11 STYLE
+// ===========================================================
+var LOGO_B64 = "data:image/jpeg;base64,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";
+
+function escapeHTML(str){
+  if(str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+
+function fmtDateFR(iso){
+  if(!iso) return "—";
+  const [y,m,d] = iso.split("-");
+  if(!y||!m||!d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
+
+function reportTitre(r){
+  const t = getTemplate(r.templateId);
+  if(t.id === "custom" && r.titreCustom) return r.titreCustom;
+  return t.titre;
+}
+
+
+function infoRow(k, v){
+  return `<div class="k">${escapeHTML(k)}</div><div class="v">${escapeHTML(v || "—")}</div>`;
+}
+
+
+function nl2br(str){ return escapeHTML(str).replace(/\n/g,"<br>"); }
+
+
+function echangeurInfoBlock(r){
+  const refrig = r.application === "REFRIGERATION";
+  return `
+  <div class="infoblock nobreak">
+    ${infoRow("Technologie", r.technologie)}
+    ${infoRow("Marque", r.marque)}
+    ${infoRow("Modèle", r.modele)}
+    ${infoRow("Application", refrig ? "REFRIGERATION IND." : "PROCESS")}
+    ${infoRow("N° série", r.numeroSerie)}
+    ${infoRow("Année fabrication", r.anneeFab)}
+    ${infoRow("Fluide primaire", r.fluidePrimaire)}
+    ${infoRow("Fluide secondaire", r.fluideSecondaire)}
+    ${infoRow("Épaisseur bâti fixe (mm)", r.epaisseurBatiFixe)}
+    ${infoRow("Épaisseur bâti mobile (mm)", r.epaisseurBatiMobile)}
+    ${infoRow("Épaisseur bâti intermédiaire (mm)", r.epaisseurBatiIntermediaire)}
+    ${infoRow("Nombre de tirants", r.nombreTirants)}
+    ${infoRow("Taille des tirants", r.tailleTirants)}
+    ${infoRow("Nombre de plaques / cassettes", r.nombrePlaques)}
+    ${infoRow("Qualité des joints", r.qualiteJoints)}
+    ${infoRow("Épaisseur des plaques (mm)", r.epaisseurPlaques)}
+  </div>`;
+}
+
+
+function dtblChecklist(r){
+  if(!r.checklist.length) return `<div class="hint">Aucune prestation renseignée.</div>`;
+  const rows = r.checklist.map(c => `
+    <tr class="nobreak">
+      <td style="width:62%">${escapeHTML(c.label || "—")}</td>
+      <td style="width:14%;text-align:center;font-weight:800;color:${c.status==='OUI'?'#2f8f4e':(c.status==='NON'?'#dc1615':'#9aa7b2')}">${c.status || "—"}</td>
+      <td style="width:24%">${nl2br(c.remark || "")}</td>
+    </tr>`).join("");
+  return `
+  <table class="dtbl">
+    <tr class="nobreak"><th>Prestation</th><th>Statut</th><th>Remarque</th></tr>
+    ${rows}
+  </table>`;
+}
+
+
+function photoSection(r){
+  if(!r.photos.length) return `<div class="hint">Aucune photo jointe à ce rapport.</div>`;
+  return photoStrip(r.photos);
+}
+
+
+function metroSection(m){
+  const tbl = (title,key) => {
+    const mm = m[key];
+    return `
+    <table class="dtbl nobreak" style="margin-bottom:8px">
+      <tr><th colspan="4" style="text-align:center">${title}</th></tr>
+      <tr><th>Gauche haut</th><th>Gauche bas</th><th>Droit haut</th><th>Droit bas</th></tr>
+      <tr>
+        <td style="text-align:center">${escapeHTML(mm.GAUCHEHAUT)||"—"}</td>
+        <td style="text-align:center">${escapeHTML(mm.GAUCHEBAS)||"—"}</td>
+        <td style="text-align:center">${escapeHTML(mm.DROITHAUT)||"—"}</td>
+        <td style="text-align:center">${escapeHTML(mm.DROITBAS)||"—"}</td>
+      </tr>
+    </table>`;
+  };
+  return `
+  <div class="platesdiagram nobreak">
+    <div class="pd">FACE GAUCHE<div class="bars"><div></div><div></div><div></div></div></div>
+    <div class="pd">FACE DROITE<div class="bars"><div></div><div></div><div></div></div></div>
+  </div>
+  ${tbl("Cote avant démontage (mm)","avant")}
+  ${tbl("Cote indiquée par le fabricant (mm)","fabricant")}
+  ${tbl("Cote après remontage (mm)","apres")}`;
+}
+
+
+function multiEchangeurBlock(r){
+  const units = (r.echangeurs||[]).map((u,i) => `
+    <div class="nobreak" style="border:1.3px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;break-inside:avoid">
+      <div style="font-weight:800;font-size:13px;color:var(--blue-deep);margin-bottom:6px">Échangeur ${i+1}${u.repere?(" — "+escapeHTML(u.repere)):""}</div>
+      <div class="infoblock" style="margin-bottom:8px">
+        ${infoRow("Marque", u.marque)}
+        ${infoRow("Modèle", u.modele)}
+        ${infoRow("N° série", u.numeroSerie)}
+        ${infoRow("Type de raccord", u.raccordType)}
+        ${infoRow("Taille de raccord", u.raccordTaille)}
+        ${infoRow("Pression d'essai", u.pressionEssai)}
+        ${infoRow("Durée de maintien", u.dureeMaintien)}
+      </div>
+      <div style="font-weight:800;font-size:12.5px;color:${resultatColor(u.resultat)};margin-bottom:6px">Résultat : ${escapeHTML(resultatLabel(u.resultat))}</div>
+      ${u.remark ? `<div class="freebox" style="margin-bottom:8px">${nl2br(u.remark)}</div>` : ""}
+      ${metroSection(u.metrology)}
+      ${u.photos && u.photos.length ? `<div style="margin-top:8px">${photoStrip(u.photos)}</div>` : ""}
+    </div>`).join("");
+
+  return units || '<div class="hint">Aucun échangeur renseigné.</div>';
+}
+
+
+function buildDocHTML(r){
+  return `
+  <div class="doc">
+    <div class="sheet">
+      <div class="head nobreak">
+        <img src="data:image/png;base64,${LOGO_B64}" alt="Clauger">
+        <div class="tag">PHE</div>
+      </div>
+      <h1 class="title">${escapeHTML(reportTitre(r))}</h1>
+      <div class="meta">
+        <span>Date de rédaction : <b>${fmtDateFR(r.dateRedaction)}</b></span>
+        <span class="ntbox">N° BT : ${escapeHTML(r.numBT || "—")}</span>
+      </div>
+
+      <div class="sectiontitle">INFORMATIONS CLAUGER &amp; CLIENT</div>
+      <div class="infoblock nobreak">
+        ${infoRow("Agence Clauger", r.agence)}
+        ${infoRow("Nom du Client", r.client)}
+        ${infoRow("Technicien", r.technicien)}
+      </div>
+
+      ${r.multiEchangeur
+        ? `<div class="sectiontitle">ECHANGEURS TESTES (CAMPAGNE)</div>${multiEchangeurBlock(r)}`
+        : `<div class="sectiontitle">INFORMATIONS ECHANGEUR</div>${echangeurInfoBlock(r)}`
+      }
+
+      <div class="nobreak">
+        <div class="sectiontitle">INFORMATIONS PRESTATION</div>
+        <div class="infoblock">
+          ${infoRow("Type de prestation", r.typePrestation)}
+        </div>
+      </div>
+
+      <div class="sectiontitle">DETAIL DES PRESTATIONS EFFECTUEES</div>
+      ${dtblChecklist(r)}
+
+      ${r.multiEchangeur ? "" : `<div class="sectiontitle">DEMONTAGE | ETAT &amp; ACTION</div>${photoSection(r)}`}
+
+      ${r.sections.metrology ? `<div class="sectiontitle">METROLOGIE</div>${metroSection(r.metrology)}` : ""}
+
+      <div class="nobreak">
+        <div class="sectiontitle">CONCLUSION ET AMELIORATIONS PROPOSEES</div>
+        <div class="freebox">${nl2br(r.conclusion) || "—"}</div>
+      </div>
+
+      <div class="nobreak">
+        <div class="sectiontitle">REMARQUES PARTICULIERES</div>
+        <div class="freebox">${nl2br(r.remarques) || "—"}</div>
+      </div>
+
+      <div class="signrow nobreak">
+        <div class="signbox">
+          <div>${escapeHTML(r.clientNom || "Client")}</div>
+          <div style="color:var(--muted)">${escapeHTML(r.clientFonction || "")}</div>
+          ${r.clientSignature ? `<img src="${r.clientSignature}">` : `<div style="height:46px"></div>`}
+        </div>
+        <div class="closing">Document établi par Clauger à l'attention du client et de l'agence, valant constat contradictoire des prestations réalisées.</div>
+        <div class="signbox">
+          <div>${escapeHTML(r.technicien || "Technicien")}</div>
+          <div style="color:var(--muted)">Technicien Clauger</div>
+          ${r.technicienSignature ? `<img src="${r.technicienSignature}">` : `<div style="height:46px"></div>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 
 // ===========================================================
 // INIT
